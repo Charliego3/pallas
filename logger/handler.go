@@ -2,10 +2,19 @@ package logger
 
 import (
 	"context"
+	"github.com/charliego3/mspp/container"
 	"github.com/charliego3/mspp/opts"
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 	"sync"
+)
+
+var (
+	timeColor = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
+		Light: "#FF71B2",
+		Dark:  "#58C5B3",
+	})
 )
 
 type TextHandler struct {
@@ -51,7 +60,18 @@ func (h *TextHandler) Enabled(_ context.Context, level slog.Level) bool {
 //   - If a group's key is empty, inline the group's Attrs.
 //   - If a group has no Attrs (even if it has a non-empty key),
 //     ignore it.
-func (h *TextHandler) Handle(context.Context, slog.Record) error {
+func (h *TextHandler) Handle(_ context.Context, r slog.Record) error {
+	state := h.newState(container.NewBuffer(), true, "", nil)
+	defer state.free()
+
+	//groups := state.groups
+	state.groups = nil
+
+	if !r.Time.IsZero() {
+		state.buf.WriteString(timeColor.Render(r.Time.Format(h.options.timeFormat)))
+		state.buf.WriteByte(' ')
+	}
+
 	return nil
 }
 
