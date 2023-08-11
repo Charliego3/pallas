@@ -2,32 +2,39 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"github.com/charliego3/mspp/container"
 	"github.com/charliego3/mspp/opts"
-	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
+	"os"
+	"runtime"
+	"strings"
 	"sync"
 )
 
-var (
-	timeColor = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
-		Light: "#FF71B2",
-		Dark:  "#58C5B3",
-	})
-)
-
-type TextHandler struct {
+type baseHandler struct {
 	options      *HandlerOptions
 	preformatted []byte
 	groupPrefix  string   // for text: prefix of groups opened in preformatting
 	groups       []string // all groups started from WithGroup
 	nOpenGroups  int      // the number of groups opened in preformattedAttrs
+	json         bool
 	mux          sync.Mutex
 }
 
-func NewTextHandler(opts ...opts.Option[HandlerOptions]) *TextHandler {
-	return &TextHandler{options: getOptions(opts...)}
+func NewTextHandler(opts ...opts.Option[HandlerOptions]) slog.Handler {
+	options := getOptions(opts...)
+	return &baseHandler{
+		options: options,
+	}
+}
+
+func NewJsonHandler(opts ...opts.Option[HandlerOptions]) slog.Handler {
+	options := getOptions(opts...)
+	return &baseHandler{
+		options: options,
+	}
 }
 
 // Enabled reports whether the handler handles records at the given level.
@@ -39,7 +46,7 @@ func NewTextHandler(opts ...opts.Option[HandlerOptions]) *TextHandler {
 // or the method does not take a context.
 // The context is passed so Enabled can use its values
 // to make a decision.
-func (h *TextHandler) Enabled(_ context.Context, level slog.Level) bool {
+func (h *baseHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.options.level
 }
 
@@ -60,7 +67,7 @@ func (h *TextHandler) Enabled(_ context.Context, level slog.Level) bool {
 //   - If a group's key is empty, inline the group's Attrs.
 //   - If a group has no Attrs (even if it has a non-empty key),
 //     ignore it.
-func (h *TextHandler) Handle(_ context.Context, r slog.Record) error {
+func (h *baseHandler) Handle(_ context.Context, r slog.Record) error {
 	state := h.newState(container.NewBuffer(), true, "", nil)
 	defer state.free()
 
@@ -68,17 +75,51 @@ func (h *TextHandler) Handle(_ context.Context, r slog.Record) error {
 	state.groups = nil
 
 	if !r.Time.IsZero() {
-		state.buf.WriteString(timeColor.Render(r.Time.Format(h.options.timeFormat)))
+		state.buf.WriteString(timeStyle.Render(r.Time.Format(h.options.timeFormat)))
 		state.buf.WriteByte(' ')
 	}
 
+	state.buf.WriteString(h.getLevelString(r.Level))
+
+	if h.options.caller && r.PC > 0 {
+		fs := runtime.CallersFrames([]uintptr{r.PC})
+		f, _ := fs.Next()
+		caller := f.Function
+		if !h.options.fullCaller {
+			paths := strings.Split(caller, string(os.PathSeparator))
+			if len(paths) > 1 {
+				paths = paths[len(paths)-2:]
+				caller = strings.Join(paths, string(os.PathSeparator))
+			}
+		}
+		caller = fmt.Sprintf(" <%s:%d>", caller, f.Line)
+		state.buf.WriteString(callerStyle.Render(caller))
+	}
+
+	if h.options.prefix != "" {
+		prefix := " [" + h.options.prefix + "]:"
+		state.buf.WriteString(prefixStyle.Render(prefix))
+	}
+
+	state.buf.WriteByte(' ')
+	state.buf.WriteString(r.Message)
+
+	r.Attrs(func(attr slog.Attr) bool {
+		h.appendAttr(state, attr)
+		return true
+	})
+
+	state.buf.WriteByte('\n')
+	h.mux.Lock()
+	defer h.mux.Unlock()
+	_, _ = h.options.w.Write(*state.buf)
 	return nil
 }
 
 // WithAttrs returns a new Handler whose attributes consist of
 // both the receiver's attributes and the arguments.
 // The Handler owns the slice: it may retain, modify or discard it.
-func (h *TextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *baseHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return nil
 }
 
@@ -101,7 +142,7 @@ func (h *TextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 //	logger.LogAttrs(level, msg, slog.Group("s", slog.Int("a", 1), slog.Int("b", 2)))
 //
 // If the name is empty, WithGroup returns the receiver.
-func (h *TextHandler) WithGroup(name string) slog.Handler {
+func (h *baseHandler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
 	}
@@ -110,8 +151,41 @@ func (h *TextHandler) WithGroup(name string) slog.Handler {
 	return h2
 }
 
-func (h *TextHandler) clone() *TextHandler {
-	return &TextHandler{
+func (h *baseHandler) appendAttr(state *state, a slog.Attr) {
+	a.Value = a.Value.Resolve()
+	if a.Equal(slog.Attr{}) {
+		return
+	}
+
+	if a.Value.Kind() == slog.KindGroup {
+		if a.Key == "" && a.Value.Equal(slog.Value{}) {
+			return
+		}
+	}
+
+	state.buf.WriteByte(' ')
+	state.buf.WriteString(randomKeyColor().Render(a.Key))
+	state.buf.WriteByte('=')
+	state.buf.WriteString(a.Value.String())
+}
+
+func (h *baseHandler) getLevelString(l slog.Level) string {
+	switch l {
+	case slog.LevelInfo:
+		return infoStyle.Render("INFO")
+	case slog.LevelDebug:
+		return debugStyle.Render("DBUG")
+	case slog.LevelWarn:
+		return warnStyle.Render("WARN")
+	case slog.LevelError:
+		return errorStyle.Render("ERRO")
+	default:
+		return boldStyle.Render(l.String()[:4])
+	}
+}
+
+func (h *baseHandler) clone() *baseHandler {
+	return &baseHandler{
 		options:      h.options,
 		preformatted: slices.Clip(h.preformatted),
 		groupPrefix:  h.groupPrefix,

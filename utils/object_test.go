@@ -1,14 +1,18 @@
 package utils
 
 import (
+	"github.com/charliego3/logger"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestNils(t *testing.T) {
-	var a any
-	var i int
-	require.True(t, Nils(a))
-	require.False(t, Nils(&i))
+	log := logger.Default().(*logger.DefaultLog)
+	log.SetPrefix("[Application]")
+	log.SetReportCaller(true)
+	log.SetLevel(logger.LevelDebug)
+	log.Debug("debug message", "key", "value")
+	log.Info("info message")
+	log.Warn("warn message")
+	log.Error("error message")
+	log.Fatal("fatal message")
 }

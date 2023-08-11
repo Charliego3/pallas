@@ -53,6 +53,12 @@ type HandlerOptions struct {
 
 	// replacer report to Replacer
 	replacer Replacer
+
+	// caller if true caller will be logged.
+	caller bool
+
+	// fullCaller: <mod/package.FunctionName:Line>
+	fullCaller bool
 }
 
 func getOptions(opts ...opts.Option[HandlerOptions]) *HandlerOptions {
@@ -73,7 +79,7 @@ func WithTimeFormat(format string) opts.Option[HandlerOptions] {
 	})
 }
 
-func WithOutput(w io.Writer) opts.Option[HandlerOptions] {
+func WithWriter(w io.Writer) opts.Option[HandlerOptions] {
 	return opts.OptionFunc[HandlerOptions](func(cfg *HandlerOptions) {
 		cfg.w = w
 	})
@@ -95,5 +101,17 @@ func WithPrefix(prefix string) opts.Option[HandlerOptions] {
 func WithReplacer(fn Replacer) opts.Option[HandlerOptions] {
 	return opts.OptionFunc[HandlerOptions](func(cfg *HandlerOptions) {
 		cfg.replacer = fn
+	})
+}
+
+func WithCaller() opts.Option[HandlerOptions] {
+	return opts.OptionFunc[HandlerOptions](func(cfg *HandlerOptions) {
+		cfg.caller = true
+	})
+}
+
+func WithFullCaller() opts.Option[HandlerOptions] {
+	return opts.OptionFunc[HandlerOptions](func(cfg *HandlerOptions) {
+		cfg.fullCaller = true
 	})
 }

@@ -2,7 +2,6 @@ package logger
 
 import (
 	"github.com/charliego3/mspp/container"
-	"sync"
 )
 
 type state struct {
@@ -13,12 +12,12 @@ type state struct {
 	groups  *[]string         // pool-allocated slice of active groups, for ReplaceAttr
 }
 
-var groupPool = sync.Pool{New: func() any {
-	s := make([]string, 0, 10)
-	return &s
-}}
+//var groupPool = sync.Pool{New: func() any {
+//	s := make([]string, 0, 10)
+//	return &s
+//}}
 
-func (h *TextHandler) newState(buf *container.Buffer, freeBuf bool, sep string, prefix *container.Buffer) *state {
+func (h *baseHandler) newState(buf *container.Buffer, freeBuf bool, sep string, prefix *container.Buffer) *state {
 	s := &state{buf: buf, freeBuf: freeBuf, sep: sep, prefix: prefix}
 	if h.options.replacer != nil {
 		s.groups = groupPool.Get().(*[]string)
