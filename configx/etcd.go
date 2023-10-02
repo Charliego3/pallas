@@ -23,8 +23,8 @@ type Etcd struct {
 	PemCert string `json:"pemCert,omitempty" yaml:"pemCert,omitempty"`
 }
 
-type embeddedEtcdFetcher struct{}
+type standardEtcdFetcher struct{}
 
-func (f *embeddedEtcdFetcher) Fetch() (Etcd, error) {
-	return *embedded.Etcd, nil
+func (f *standardEtcdFetcher) Fetch() (Etcd, error) {
+	return *standard.Etcd, nil
 }

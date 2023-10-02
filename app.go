@@ -2,16 +2,18 @@ package mapp
 
 import (
 	"context"
-	"fmt"
-	"golang.org/x/exp/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"golang.org/x/exp/slog"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/charliego3/logger"
 	"github.com/charliego3/mspp/configx"
+	"github.com/charliego3/shandler"
 	"github.com/gookit/goutil/strutil"
 
 	"github.com/charliego3/mspp/grpcx"
@@ -69,16 +71,15 @@ func (app *Application) fgrpc(f func()) {
 
 // init handling and aggregation options
 func (app *Application) init(aopts ...opts.Option[Config]) {
-	app.cfg = &Config{
-		logger: logger.WithPrefix(fmt.Sprintf("Application[%s]", Name)),
-	}
+	app.cfg = &Config{}
 	slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))
 	for _, opt := range aopts {
 		opt.Apply(app.cfg)
 	}
 
 	if app.cfg.disableGRPC && app.cfg.disableHTTP {
-		app.cfg.logger.Fatalf("cannot turn off HTTP and gRPC at the same time.")
+		slog.Error("cannot turn off HTTP and gRPC at the same time.")
+		os.Exit(1)
 	}
 
 	app.usingAppListener = utils.Nils(app.cfg.glis, app.cfg.hlis) && !app.cfg.disableGRPC && !app.cfg.disableHTTP
@@ -88,7 +89,7 @@ func (app *Application) init(aopts ...opts.Option[Config]) {
 	}
 
 	app.fgrpc(func() {
-		glogger := logger.WithPrefix("gRPC")
+		glogger := slog.New(shandler.NewTextHandler(shandler.WithCaller(), shandler.WithPrefix("gRPC")))
 		if app.usingAppListener {
 			contentType := http.CanonicalHeaderKey("content-type")
 			matcher := cmux.HTTP2MatchHeaderFieldPrefixSendSettings(contentType, "application/grpc")
@@ -96,7 +97,7 @@ func (app *Application) init(aopts ...opts.Option[Config]) {
 		} else if app.cfg.glis == nil {
 			app.cfg.glis = app.cfg.lis
 			if app.cfg.glis == nil {
-				app.cfg.glis = app.getDynamicListener(glogger)
+				app.cfg.glis = app.getDynamicListener()
 			}
 		}
 		gopts := append(
@@ -114,7 +115,7 @@ func (app *Application) init(aopts ...opts.Option[Config]) {
 		} else if app.cfg.hlis == nil {
 			app.cfg.hlis = app.cfg.lis
 			if app.cfg.hlis == nil {
-				app.cfg.hlis = app.getDynamicListener(hlogger)
+				app.cfg.hlis = app.getDynamicListener()
 			}
 		}
 		hopts := append(
@@ -133,7 +134,7 @@ func (app *Application) initAppListener() {
 
 	listener := app.getConfigListener()
 	if listener == nil {
-		app.cfg.lis = app.getDynamicListener(app.cfg.logger)
+		app.cfg.lis = app.getDynamicListener()
 	} else {
 		app.cfg.lis = listener
 	}
@@ -147,14 +148,22 @@ func (app *Application) getConfigListener() net.Listener {
 		}
 		_, _, err = net.SplitHostPort(cfg.Address)
 		if err != nil {
-			app.cfg.logger.Fatalf("failed listen application", "network",
-				cfg.Network, "address", cfg.Address, "reason", err)
+			slog.Error("failed listen application",
+				slog.String("network", cfg.Network),
+				slog.String("address", cfg.Address),
+				slog.Any("reason", err),
+			)
+			os.Exit(1)
 		}
 
 		listener, err := net.Listen(cfg.Network, cfg.Address)
 		if err != nil {
-			app.cfg.logger.Fatal("failed listen application", "network",
-				cfg.Network, "address", cfg.Address)
+			slog.Error("failed listen application",
+				slog.String("network", cfg.Network),
+				slog.String("address", cfg.Address),
+				slog.Any("reason", err),
+			)
+			os.Exit(1)
 		}
 		return listener
 	}
@@ -162,13 +171,14 @@ func (app *Application) getConfigListener() net.Listener {
 }
 
 // getDynamicListener if app without any listener specifies then create a dynamic listener
-func (app *Application) getDynamicListener(logger logger.Logger) net.Listener {
+func (app *Application) getDynamicListener() net.Listener {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		logger.Fatal("failed to listen", "err", err)
+		slog.Error("failed to listen", slog.Any("err", err))
+		os.Exit(1)
 	}
 
-	logger.Warn("No address is specified so dynamic addresses are used", "address", listener.Addr().String())
+	slog.Warn("No address is specified so dynamic addresses are used", slog.String("address", listener.Addr().String()))
 	return listener
 }
 
@@ -193,11 +203,16 @@ func (app *Application) RegisterService(services ...service.Service) {
 
 // Run start the server until terminate
 func (app *Application) Run(ctx context.Context) (err error) {
-	go app.fgrpc(func() {
-		err := app.grpc.Run()
-		if err != nil {
-			app.grpc.Logger().Fatal("gRPC server got an error", err)
-		}
+	var group *errgroup.Group
+	group, ctx = errgroup.WithContext(ctx)
+	group.Go(func() error {
+		app.fgrpc(func() {
+			err := app.grpc.Run(ctx)
+			if err != nil {
+				app.grpc.Logger().Error("gRPC server got an error", slog.Any("detail", err))
+			}
+		})
+		return err
 	})
 
 	go app.fhttp(func() {
@@ -211,21 +226,22 @@ func (app *Application) Run(ctx context.Context) (err error) {
 		go func() {
 			err := app.mux.Serve()
 			if err != nil {
-				app.cfg.logger.Fatal("Application got an error", err)
+				slog.Error("Application got an error", slog.Any("err", err))
+				os.Exit(1)
 			}
 		}()
 	}
 
 	addr := app.Address()
 	if addr != nil {
-		app.cfg.logger.Infof("listening on: %s", addr.String())
+		slog.Info("listening", slog.String("address", addr.String()))
 	}
 
 	stopper := make(chan os.Signal, 1)
 	signal.Notify(stopper, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGILL, syscall.SIGINT)
 	<-stopper
 
-	app.cfg.logger.Info("terminated.", "err", err)
+	slog.Info("terminated.")
 	return err
 }
 

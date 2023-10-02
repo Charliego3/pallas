@@ -12,8 +12,8 @@ type Database struct {
 	} `json:"options,omitempty" yaml:"options,omitempty"`
 }
 
-type embeddedDatabaseFetcher struct{}
+type standardDatabaseFetcher struct{}
 
-func (f *embeddedDatabaseFetcher) Fetch() (Database, error) {
-	return *embedded.Database, nil
+func (f *standardDatabaseFetcher) Fetch() (Database, error) {
+	return *standard.Database, nil
 }

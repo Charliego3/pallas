@@ -5,8 +5,8 @@ import (
 )
 
 func TestFetcherTypes(t *testing.T) {
-	RegisterFetcher[Redis](&embeddedRedisFetcher{})
-	RegisterFetcher[Etcd](&embeddedEtcdFetcher{})
+	RegisterFetcher[Redis](&standardRedisFetcher{})
+	RegisterFetcher[Etcd](&standardEtcdFetcher{})
 
 	config, ok := Fetch[Etcd]()
 	t.Log(config, ok)

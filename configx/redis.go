@@ -46,8 +46,8 @@ type Redis struct {
 	MasterName string `yaml:"masterName,omitempty"`
 }
 
-type embeddedRedisFetcher struct{}
+type standardRedisFetcher struct{}
 
-func (f *embeddedRedisFetcher) Fetch() (Redis, error) {
-	return *embedded.Redis, nil
+func (f *standardRedisFetcher) Fetch() (Redis, error) {
+	return *standard.Redis, nil
 }

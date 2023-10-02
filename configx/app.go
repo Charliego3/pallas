@@ -5,8 +5,8 @@ type App struct {
 	Address string `json:"address,omitempty" yaml:"address"`
 }
 
-type embeddedAppFetcher struct{}
+type standardAppFetcher struct{}
 
-func (f *embeddedAppFetcher) Fetch() (App, error) {
-	return *embedded.App, nil
+func (f *standardAppFetcher) Fetch() (App, error) {
+	return *standard.App, nil
 }

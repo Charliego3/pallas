@@ -4,39 +4,48 @@ import (
 	"net"
 
 	"github.com/charliego3/logger"
-	"github.com/charliego3/mspp/opts"
+	"golang.org/x/exp/slog"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
+type Option func(*Server)
+
 // WithAddr create a listener with network and address
 // WithAddr and WithListener just choose one of them
-func WithAddr(network, addr string) opts.Option[Server] {
-	return opts.OptionFunc[Server](func(cfg *Server) {
+func WithAddr(network, addr string) Option {
+	return func(s *Server) {
 		listener, err := net.Listen(network, addr)
 		if err != nil {
 			logger.Fatal("failed to listen grpc server", "err", err)
 		}
-		cfg.listener = listener
-	})
+		s.listener = listener
+	}
 }
 
 // WithListener uses the given listener
 // WithListener and WithAddr just choose one of them
-func WithListener(lis net.Listener) opts.Option[Server] {
-	return opts.OptionFunc[Server](func(cfg *Server) {
-		cfg.listener = lis
-	})
+func WithListener(lis net.Listener) Option {
+	return func(s *Server) {
+		s.listener = lis
+	}
 }
 
 // WithServerOption inject grpc.ServerOption to server
-func WithServerOption(gsos ...grpc.ServerOption) opts.Option[Server] {
-	return opts.OptionFunc[Server](func(cfg *Server) {
-		cfg.srvOpts = gsos
-	})
+func WithServerOption(gsos ...grpc.ServerOption) Option {
+	return func(s *Server) {
+		s.srvOpts = gsos
+	}
 }
 
-func WithLogger(logger logger.Logger) opts.Option[Server] {
-	return opts.OptionFunc[Server](func(cfg *Server) {
-		cfg.logger = logger
-	})
+func WithLogger(logger *slog.Logger) Option {
+	return func(s *Server) {
+		s.logger = logger
+	}
+}
+
+func WithGroup(group *errgroup.Group) Option {
+	return func(s *Server) {
+		s.group = group
+	}
 }

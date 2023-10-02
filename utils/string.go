@@ -7,7 +7,7 @@ import (
 	"github.com/gookit/goutil/strutil"
 )
 
-// String convert[]byte to string
+// String convert []byte to string
 func String(data []byte) string {
 	return unsafe.String(&data[0], len(data))
 }

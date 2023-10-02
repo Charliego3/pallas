@@ -2,12 +2,13 @@ package mapp
 
 import (
 	"net"
+	"os"
 
 	"github.com/charliego3/mspp/grpcx"
 	"github.com/charliego3/mspp/httpx"
+	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
 
-	"github.com/charliego3/logger"
 	"github.com/charliego3/mspp/opts"
 )
 
@@ -33,12 +34,10 @@ type Config struct {
 	onStartup func(*Application) error
 
 	// gopts is grpcx.Server options
-	gopts []opts.Option[grpcx.Server]
+	gopts []grpcx.Option
 
 	// middles accept http server Middleware
 	hopts []opts.Option[httpx.Server]
-
-	logger logger.Logger
 }
 
 func DisableHTTP() opts.Option[Config] {
@@ -77,7 +76,8 @@ func WithAddr(network, addr string) opts.Option[Config] {
 	return opts.OptionFunc[Config](func(cfg *Config) {
 		listener, err := net.Listen(network, addr)
 		if err != nil {
-			cfg.logger.Fatal("failed to listen app", "err", err)
+			slog.Error("failed to listen app", slog.Any("err", err))
+			os.Exit(1)
 		}
 		cfg.lis = listener
 	})
@@ -100,7 +100,8 @@ func WithHttpAddr(network, addr string) opts.Option[Config] {
 	return opts.OptionFunc[Config](func(cfg *Config) {
 		listener, err := net.Listen(network, addr)
 		if err != nil {
-			cfg.logger.Fatal("failed to listen http server with app", "err", err)
+			slog.Error("failed to listen http server with app", slog.Any("err", err))
+			os.Exit(1)
 		}
 		cfg.hlis = listener
 	})
@@ -118,7 +119,8 @@ func WithGrpcAddr(network, addr string) opts.Option[Config] {
 	return opts.OptionFunc[Config](func(cfg *Config) {
 		listener, err := net.Listen(network, addr)
 		if err != nil {
-			cfg.logger.Fatal("failed to listen grpc server with app", "err", err)
+			slog.Error("failed to listen grpc server with app", slog.Any("err", err))
+			os.Exit(1)
 		}
 		cfg.glis = listener
 	})
