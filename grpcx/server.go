@@ -2,13 +2,13 @@ package grpcx
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"os"
 
 	"github.com/charliego3/mspp/service"
 	"github.com/charliego3/mspp/utils"
 	"github.com/charliego3/shandler"
-	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -51,7 +51,7 @@ func (g *Server) Address() net.Addr {
 	return g.listener.Addr()
 }
 
-// RegisterService register server to grpc servser
+// RegisterService register server to grpc server
 func (g *Server) RegisterService(services ...service.Service) {
 	for _, srv := range services {
 		g.server.RegisterService(srv.ServiceDesc(), srv)

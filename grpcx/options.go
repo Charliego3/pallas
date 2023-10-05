@@ -4,9 +4,9 @@ import (
 	"net"
 
 	"github.com/charliego3/logger"
-	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"log/slog"
 )
 
 type Option func(*Server)

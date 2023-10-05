@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
+	"log/slog"
 
 	"github.com/charliego3/logger"
 	"github.com/charliego3/mspp/configx"

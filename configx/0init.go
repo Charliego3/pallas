@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"golang.org/x/exp/slog"
 	"gopkg.in/yaml.v3"
+	"log/slog"
 
 	"github.com/charliego3/argsx"
 	"github.com/gookit/goutil/fsutil"

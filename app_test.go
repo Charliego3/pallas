@@ -2,10 +2,10 @@ package mapp
 
 import (
 	"context"
-	"golang.org/x/exp/slog"
+	"github.com/charliego3/shandler"
+	"log/slog"
 	"net"
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -23,15 +23,18 @@ func TestDefaultFunc(t *testing.T) {
 func TestCheckAddress(t *testing.T) {
 	host, port, err := net.SplitHostPort(":8080")
 	require.NoError(t, err)
-	slog.Info("Host: %s, Port: %s", host, port)
+	slog.Info("address", slog.String("host", host), slog.String("port", port))
 }
 
 func TestSlog(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		AddSource: true,
-		Level:     slog.LevelInfo,
-	})).WithGroup("Group")
-	logger.Info("this is info message", slog.Int("", 11), slog.String("str", "string value"), slog.Group("request",
-		"method", http.MethodOptions,
-		"url", "/robot/details"))
+	slog.SetDefault(slog.New(shandler.NewTextHandler(
+		//shandler.WithWriter(os.Stdout),
+		shandler.WithCaller(),
+	)).WithGroup("g"))
+	slog.Info("this is info message",
+		slog.Int("sss", 11),
+		slog.String("str", "string value"),
+		slog.Group("request",
+			"method", http.MethodOptions,
+			"url", "/robot/details"))
 }

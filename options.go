@@ -6,8 +6,8 @@ import (
 
 	"github.com/charliego3/mspp/grpcx"
 	"github.com/charliego3/mspp/httpx"
-	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
+	"log/slog"
 
 	"github.com/charliego3/mspp/opts"
 )

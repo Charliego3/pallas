@@ -6,7 +6,7 @@ import (
 
 	"github.com/charliego3/mspp/utils"
 	"github.com/charliego3/shandler"
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 func TestListen(t *testing.T) {
