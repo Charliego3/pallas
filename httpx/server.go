@@ -6,7 +6,7 @@ import (
 
 	"github.com/charliego3/logger"
 	"github.com/charliego3/mspp/opts"
-	"github.com/charliego3/mspp/service"
+	"github.com/charliego3/mspp/types"
 	"github.com/gorilla/mux"
 )
 
@@ -49,7 +49,7 @@ func (h *Server) init(opts []opts.Option[Server]) {
 	}
 }
 
-func (h *Server) RegisterService(service ...service.Service) {
+func (h *Server) RegisterService(service ...types.Service) {
 	h.Path("").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 	})

@@ -8,8 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"golang.org/x/sync/errgroup"
 	"log/slog"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/charliego3/logger"
 	"github.com/charliego3/mspp/configx"
@@ -19,7 +20,7 @@ import (
 	"github.com/charliego3/mspp/grpcx"
 	"github.com/charliego3/mspp/httpx"
 	"github.com/charliego3/mspp/opts"
-	"github.com/charliego3/mspp/service"
+	"github.com/charliego3/mspp/types"
 	"github.com/charliego3/mspp/utils"
 	"github.com/soheilhy/cmux"
 )
@@ -31,7 +32,7 @@ type Application struct {
 	http *httpx.Server
 
 	// grpc server is grpcx.Server using grpc
-	grpc *grpcx.Server
+	grpc types.Server
 
 	// mux to accept http and grpc
 	// if cfg.glis and cfg.hlis both nil else is nil
@@ -192,7 +193,7 @@ func (app *Application) Address() net.Addr {
 }
 
 // RegisterService add service to http and grpc server
-func (app *Application) RegisterService(services ...service.Service) {
+func (app *Application) RegisterService(services ...types.Service) {
 	app.fhttp(func() {
 		app.http.RegisterService(services...)
 	})

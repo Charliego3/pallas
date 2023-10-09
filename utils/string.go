@@ -2,9 +2,8 @@ package utils
 
 import (
 	"database/sql"
+	"unicode"
 	"unsafe"
-
-	"github.com/gookit/goutil/strutil"
 )
 
 // String convert []byte to string
@@ -17,10 +16,23 @@ func Bytes(data string) []byte {
 	return unsafe.Slice(unsafe.StringData(data), len(data))
 }
 
+func IsBlank(b string) bool {
+	for _, v := range b {
+		if !unicode.IsSpace(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func NonBlank(v string) bool {
+	return !IsBlank(v)
+}
+
 // AnyBlank has any empty value return true otherwise return false
 func AnyBlank(args ...string) bool {
 	for _, v := range args {
-		if strutil.IsBlank(v) {
+		if IsBlank(v) {
 			return true
 		}
 	}
@@ -30,7 +42,7 @@ func AnyBlank(args ...string) bool {
 // NonBlanks has any empty string returns false otherwise return true
 func NonBlanks(args ...string) bool {
 	for _, v := range args {
-		if strutil.IsBlank(v) {
+		if IsBlank(v) {
 			return false
 		}
 	}
@@ -40,7 +52,7 @@ func NonBlanks(args ...string) bool {
 // Blanks all value empty return true otherwise return false
 func Blanks(args ...string) bool {
 	for _, v := range args {
-		if strutil.IsNotBlank(v) {
+		if NonBlank(v) {
 			return false
 		}
 	}

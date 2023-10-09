@@ -6,14 +6,15 @@ import (
 	"net"
 	"os"
 
-	"github.com/charliego3/mspp/service"
+	"github.com/charliego3/mspp/types"
 	"github.com/charliego3/mspp/utils"
 	"github.com/charliego3/shandler"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
-type Server struct {
+type server struct {
 	listener net.Listener
 	server   *grpc.Server
 	srvOpts  []grpc.ServerOption
@@ -22,8 +23,8 @@ type Server struct {
 }
 
 // NewServer returns grpc server instance
-func NewServer(opts ...Option) *Server {
-	s := &Server{}
+func NewServer(opts ...Option) types.Server {
+	s := &server{}
 	for _, fn := range opts {
 		fn(s)
 	}
@@ -42,23 +43,23 @@ func NewServer(opts ...Option) *Server {
 	return s
 }
 
-func (g *Server) Logger() *slog.Logger {
+func (g *server) Logger() *slog.Logger {
 	return g.logger
 }
 
 // Address returns grpc listener addr
-func (g *Server) Address() net.Addr {
+func (g *server) Address() net.Addr {
 	return g.listener.Addr()
 }
 
 // RegisterService register server to grpc server
-func (g *Server) RegisterService(services ...service.Service) {
+func (g *server) RegisterService(services ...types.Service) {
 	for _, srv := range services {
-		g.server.RegisterService(srv.ServiceDesc(), srv)
+		g.server.RegisterService(srv.Desc(), srv)
 	}
 }
 
-func (g *Server) Run(ctx context.Context) error {
+func (g *server) Run(ctx context.Context) error {
 	if g.group == nil {
 		group, _ := errgroup.WithContext(ctx)
 		g.group = group
@@ -70,6 +71,11 @@ func (g *Server) Run(ctx context.Context) error {
 	return nil
 }
 
-func (g *Server) Wait() error {
-	return g.group.Wait()
+func (g *server) Start(ctx context.Context) error {
+	err := g.Run(ctx)
+	return errors.Wrap(g.group.Wait(), err.Error())
+}
+
+func (g *server) Shutdown() error {
+	return nil
 }
