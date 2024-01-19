@@ -1,4 +1,4 @@
-package utils
+package utility
 
 import (
 	"google.golang.org/grpc/codes"

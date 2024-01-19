@@ -1,11 +1,11 @@
 package httpx
 
 import (
+	"github.com/charliego3/mspp/utility"
 	"net"
 	"net/http"
 
 	"github.com/charliego3/logger"
-	"github.com/charliego3/mspp/opts"
 	"github.com/charliego3/mspp/types"
 	"github.com/gorilla/mux"
 )
@@ -24,7 +24,7 @@ type Server struct {
 
 type Middleware = mux.MiddlewareFunc
 
-func NewServer(opts ...opts.Option[Server]) *Server {
+func NewServer(opts ...utility.Option[Server]) *Server {
 	h := &Server{
 		Router: mux.NewRouter(),
 	}
@@ -39,10 +39,8 @@ func (h *Server) Logger() logger.Logger {
 }
 
 // init accept options to Server
-func (h *Server) init(opts []opts.Option[Server]) {
-	for _, opt := range opts {
-		opt.Apply(h)
-	}
+func (h *Server) init(options []utility.Option[Server]) {
+	utility.Apply(h, options...)
 
 	if h.listener == nil {
 		logger.Fatal("http server has no address specified, use WithAddr or WithListener to specify")

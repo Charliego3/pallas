@@ -2,6 +2,8 @@ package mapp
 
 import (
 	"context"
+	"fmt"
+	"github.com/charliego3/mspp/registry"
 	"net"
 	"net/http"
 	"os"
@@ -19,13 +21,30 @@ import (
 
 	"github.com/charliego3/mspp/grpcx"
 	"github.com/charliego3/mspp/httpx"
-	"github.com/charliego3/mspp/opts"
 	"github.com/charliego3/mspp/types"
-	"github.com/charliego3/mspp/utils"
+	"github.com/charliego3/mspp/utility"
 	"github.com/soheilhy/cmux"
 )
 
-var Name string
+const HealthzURL = "/debug/healthz"
+
+// HealthzHandler is a health-check handler that returns an OK status for all
+// incoming HTTP requests.
+var HealthzHandler = func(w http.ResponseWriter, r *http.Request) {
+	_, _ = fmt.Fprint(w, "OK")
+}
+
+var (
+	// Name is the application unique name
+	// this can be injected with build command `-X github.com/charliego3/mspp.Name=<app name>`
+	// or using Option set value
+	Name string
+
+	// Version sepcify the application's version
+	// this can be injected with build command `-X github.com/charliego3/mspp.Version=<version>`
+	// or using Option set value
+	Version string
+)
 
 type Application struct {
 	// http server is httpx.Server using mux.Router
@@ -39,23 +58,28 @@ type Application struct {
 	mux cmux.CMux
 
 	// Application config properties
-	cfg *Config
+	*options
 
 	usingAppListener bool
+
+	ctx      context.Context
+	cancel   context.CancelCauseFunc
+	servers  []types.Server
+	logger   *slog.Logger
+	registry registry.Registry
 }
 
 // NewApp returns Application
-func NewApp(opts ...opts.Option[Config]) *Application {
-	app := &Application{}
-	app.init(opts...)
-	if app.cfg.onStartup != nil {
-		app.cfg.onStartup(app)
-	}
+func NewApp(opts ...utility.Option[Application]) *Application {
+	app := new(Application)
+	app.logger = slog.Default()
+	app.ctx, app.cancel = context.WithCancelCause(context.Background())
+	utility.Apply(app, opts...)
 	return app
 }
 
 func (app *Application) fhttp(f func()) {
-	if app.cfg.disableHTTP {
+	if app.disableHTTP {
 		return
 	}
 
@@ -63,7 +87,7 @@ func (app *Application) fhttp(f func()) {
 }
 
 func (app *Application) fgrpc(f func()) {
-	if app.cfg.disableGRPC {
+	if app.disableGRPC {
 		return
 	}
 
@@ -71,22 +95,20 @@ func (app *Application) fgrpc(f func()) {
 }
 
 // init handling and aggregation options
-func (app *Application) init(aopts ...opts.Option[Config]) {
-	app.cfg = &Config{}
+func (app *Application) init(opt ...utility.Option[Application]) {
+	app.options = &options{}
 	slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))
-	for _, opt := range aopts {
-		opt.Apply(app.cfg)
-	}
+	utility.Apply(app, opt...)
 
-	if app.cfg.disableGRPC && app.cfg.disableHTTP {
+	if app.disableGRPC && app.disableHTTP {
 		slog.Error("cannot turn off HTTP and gRPC at the same time.")
 		os.Exit(1)
 	}
 
-	app.usingAppListener = utils.Nils(app.cfg.glis, app.cfg.hlis) && !app.cfg.disableGRPC && !app.cfg.disableHTTP
+	app.usingAppListener = utility.Nils(app.glis, app.hlis) && !app.disableGRPC && !app.disableHTTP
 	if app.usingAppListener {
 		app.initAppListener()
-		app.mux = cmux.New(app.cfg.lis)
+		app.mux = cmux.New(app.lis)
 	}
 
 	app.fgrpc(func() {
@@ -94,34 +116,33 @@ func (app *Application) init(aopts ...opts.Option[Config]) {
 		if app.usingAppListener {
 			contentType := http.CanonicalHeaderKey("content-type")
 			matcher := cmux.HTTP2MatchHeaderFieldPrefixSendSettings(contentType, "application/grpc")
-			app.cfg.glis = app.mux.MatchWithWriters(matcher)
-		} else if app.cfg.glis == nil {
-			app.cfg.glis = app.cfg.lis
-			if app.cfg.glis == nil {
-				app.cfg.glis = app.getDynamicListener()
+			app.glis = app.mux.MatchWithWriters(matcher)
+		} else if app.glis == nil {
+			app.glis = app.lis
+			if app.glis == nil {
+				app.glis = app.getDynamicListener()
 			}
 		}
-		gopts := append(
-			app.cfg.gopts,
-			grpcx.WithListener(app.cfg.glis),
+		gopts := []utility.Option[grpcx.Server]{
+			grpcx.WithListener(app.glis),
 			grpcx.WithLogger(glogger),
-		)
+		}
 		app.grpc = grpcx.NewServer(gopts...)
 	})
 
 	app.fhttp(func() {
 		hlogger := logger.WithPrefix("HTTP")
 		if app.usingAppListener {
-			app.cfg.hlis = app.mux.Match(cmux.Any())
-		} else if app.cfg.hlis == nil {
-			app.cfg.hlis = app.cfg.lis
-			if app.cfg.hlis == nil {
-				app.cfg.hlis = app.getDynamicListener()
+			app.hlis = app.mux.Match(cmux.Any())
+		} else if app.hlis == nil {
+			app.hlis = app.lis
+			if app.hlis == nil {
+				app.hlis = app.getDynamicListener()
 			}
 		}
 		hopts := append(
-			app.cfg.hopts,
-			httpx.WithListener(app.cfg.hlis),
+			app.hopts,
+			httpx.WithListener(app.hlis),
 			httpx.WithLogger(hlogger),
 		)
 		app.http = httpx.NewServer(hopts...)
@@ -129,15 +150,15 @@ func (app *Application) init(aopts ...opts.Option[Config]) {
 }
 
 func (app *Application) initAppListener() {
-	if app.cfg.lis != nil {
+	if app.lis != nil {
 		return
 	}
 
 	listener := app.getConfigListener()
 	if listener == nil {
-		app.cfg.lis = app.getDynamicListener()
+		app.lis = app.getDynamicListener()
 	} else {
-		app.cfg.lis = listener
+		app.lis = listener
 	}
 }
 
@@ -186,10 +207,10 @@ func (app *Application) getDynamicListener() net.Listener {
 // Address returns application listen address
 // this address is http and grpc both
 func (app *Application) Address() net.Addr {
-	if app.cfg.lis == nil {
+	if app.lis == nil {
 		return nil
 	}
-	return app.cfg.lis.Addr()
+	return app.lis.Addr()
 }
 
 // RegisterService add service to http and grpc server
@@ -210,7 +231,7 @@ func (app *Application) Run(ctx context.Context) (err error) {
 		app.fgrpc(func() {
 			err := app.grpc.Run(ctx)
 			if err != nil {
-				app.grpc.Logger().Error("gRPC server got an error", slog.Any("detail", err))
+				//app.grpc.Logger.Error("gRPC server got an error", slog.Any("detail", err))
 			}
 		})
 		return err

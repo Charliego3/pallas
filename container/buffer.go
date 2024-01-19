@@ -38,8 +38,9 @@ func (b *Buffer) WriteString(s string) {
 	*b = append(*b, s...)
 }
 
-func (b *Buffer) WriteByte(c byte) {
+func (b *Buffer) WriteByte(c byte) error {
 	*b = append(*b, c)
+	return nil
 }
 
 func (b *Buffer) WritePosInt(i int) {

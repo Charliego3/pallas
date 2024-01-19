@@ -13,7 +13,7 @@ import (
 
 	"github.com/charliego3/logger"
 	"github.com/charliego3/mspp/configx"
-	"github.com/charliego3/mspp/utils"
+	"github.com/charliego3/mspp/utility"
 	"github.com/gookit/goutil/strutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -81,7 +81,7 @@ func C() *Client {
 
 		var tlsConfig *tls.Config
 		if strutil.IsNotBlank(cfg.RootCA) {
-			if utils.AnyBlank(cfg.PemKey, cfg.PemCert) {
+			if utility.AnyBlank(cfg.PemKey, cfg.PemCert) {
 				logger.Fatalf("etcd certificate path is incorrect, Key: %q, Cert: %q", cfg.PemKey, cfg.PemCert)
 			}
 

@@ -7,75 +7,70 @@ import (
 	"os"
 
 	"github.com/charliego3/mspp/types"
-	"github.com/charliego3/mspp/utils"
+	"github.com/charliego3/mspp/utility"
 	"github.com/charliego3/shandler"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
-type server struct {
-	listener net.Listener
-	server   *grpc.Server
-	srvOpts  []grpc.ServerOption
-	logger   *slog.Logger
-	group    *errgroup.Group
+type Server struct {
+	*options
+	base   *types.BaseServer
+	server *grpc.Server
+	group  *errgroup.Group
 }
 
 // NewServer returns grpc server instance
-func NewServer(opts ...Option) types.Server {
-	s := &server{}
-	for _, fn := range opts {
-		fn(s)
+func NewServer(opts ...utility.Option[Server]) *Server {
+	s := new(Server)
+	s.base = new(types.BaseServer)
+	s.options = new(options)
+	utility.Apply(s, opts...)
+	if s.base.Logger == nil {
+		s.base.Logger = shandler.CopyWithPrefix("gRPC")
 	}
-	if s.logger == nil {
-		s.logger = shandler.CopyWithPrefix("gRPC")
-	}
-	if s.listener == nil {
-		listener, err := utils.RandomTCPListener()
+	if s.base.Listener == nil {
+		listener, err := utility.RandomTCPListener()
 		if err != nil {
-			s.logger.Error("failed to listen", slog.Any("err", err))
+			s.base.Logger.Error("failed to listen", slog.Any("err", err))
 			os.Exit(1)
 		}
-		s.listener = listener
+		s.base.Listener = listener
 	}
-	s.server = grpc.NewServer(s.srvOpts...)
+	s.server = grpc.NewServer(s.serverOpts...)
 	return s
 }
 
-func (g *server) Logger() *slog.Logger {
-	return g.logger
-}
-
 // Address returns grpc listener addr
-func (g *server) Address() net.Addr {
-	return g.listener.Addr()
+func (g *Server) Address() net.Addr {
+	return g.base.Listener.Addr()
 }
 
 // RegisterService register server to grpc server
-func (g *server) RegisterService(services ...types.Service) {
+func (g *Server) RegisterService(services ...types.Service) {
 	for _, srv := range services {
 		g.server.RegisterService(srv.Desc(), srv)
 	}
 }
 
-func (g *server) Run(ctx context.Context) error {
+func (g *Server) Run(ctx context.Context) error {
 	if g.group == nil {
 		group, _ := errgroup.WithContext(ctx)
 		g.group = group
 	}
 	g.group.Go(func() error {
-		return g.server.Serve(g.listener)
+		return g.server.Serve(g.base.Listener)
 	})
-	g.logger.Info("listen on", slog.String("address", g.listener.Addr().String()))
+	g.base.Logger.Info("listen on", slog.String("address", g.base.Listener.Addr().String()))
 	return nil
 }
 
-func (g *server) Start(ctx context.Context) error {
+func (g *Server) Start(ctx context.Context) error {
 	err := g.Run(ctx)
 	return errors.Wrap(g.group.Wait(), err.Error())
 }
 
-func (g *server) Shutdown() error {
+func (g *Server) Shutdown(ctx context.Context) error {
 	return nil
 }

@@ -1,53 +1,52 @@
 package grpcx
 
 import (
-	"net"
-	"os"
-
+	"github.com/charliego3/mspp/utility"
 	"log/slog"
+	"net"
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
-type Option func(*server)
+type options struct {
+	serverOpts   []grpc.ServerOption
+	unaryInters  []grpc.UnaryServerInterceptor
+	streamInters []grpc.StreamServerInterceptor
+}
 
 // WithAddr create a listener with network and address
 // WithAddr and WithListener just choose one of them
-func WithAddr(network, addr string) Option {
-	return func(s *server) {
-		listener, err := net.Listen(network, addr)
-		if err != nil {
-			slog.Error("failed to listen gRPC server", slog.Any("err", err))
-			os.Exit(1)
-		}
-		s.listener = listener
+func WithAddr(network, addr string) utility.Option[Server] {
+	return func(s *Server) {
+		s.base.Network = network
+		s.base.Addr = addr
 	}
 }
 
 // WithListener uses the given listener
 // WithListener and WithAddr just choose one of them
-func WithListener(lis net.Listener) Option {
-	return func(s *server) {
-		s.listener = lis
+func WithListener(lis net.Listener) utility.Option[Server] {
+	return func(s *Server) {
+		s.base.Listener = lis
 	}
 }
 
 // WithServerOption inject grpc.ServerOption to server
-func WithServerOption(gsos ...grpc.ServerOption) Option {
-	return func(s *server) {
-		s.srvOpts = gsos
+func WithServerOption(opts ...grpc.ServerOption) utility.Option[Server] {
+	return func(s *Server) {
+		s.serverOpts = opts
 	}
 }
 
-func WithLogger(logger *slog.Logger) Option {
-	return func(s *server) {
-		s.logger = logger
+func WithLogger(logger *slog.Logger) utility.Option[Server] {
+	return func(s *Server) {
+		s.base.Logger = logger
 	}
 }
 
-func WithGroup(group *errgroup.Group) Option {
-	return func(s *server) {
+func WithGroup(group *errgroup.Group) utility.Option[Server] {
+	return func(s *Server) {
 		s.group = group
 	}
 }

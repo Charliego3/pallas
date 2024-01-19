@@ -1,4 +1,4 @@
-package utils
+package utility
 
 type SafeRunner struct {
 	err error

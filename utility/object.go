@@ -1,4 +1,4 @@
-package utils
+package utility
 
 // Nils all values is nil return true otherwise return false
 func Nils(objs ...any) bool {
