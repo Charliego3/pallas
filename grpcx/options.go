@@ -1,6 +1,7 @@
 package grpcx
 
 import (
+	"crypto/tls"
 	"github.com/charliego3/mspp/utility"
 	"log/slog"
 	"net"
@@ -10,9 +11,35 @@ import (
 )
 
 type options struct {
-	serverOpts   []grpc.ServerOption
-	unaryInters  []grpc.UnaryServerInterceptor
-	streamInters []grpc.StreamServerInterceptor
+	serverOption  []grpc.ServerOption
+	unaryInters   []grpc.UnaryServerInterceptor
+	streamInters  []grpc.StreamServerInterceptor
+	tlsConfig     *tls.Config
+	disableHealth bool
+}
+
+func DisableHealth() utility.Option[Server] {
+	return func(s *Server) {
+		s.disableHealth = true
+	}
+}
+
+func WithUnaryInterceptor(interceptors ...grpc.UnaryServerInterceptor) utility.Option[Server] {
+	return func(s *Server) {
+		s.unaryInters = interceptors
+	}
+}
+
+func WithStreamInterceptor(interceptors ...grpc.StreamServerInterceptor) utility.Option[Server] {
+	return func(s *Server) {
+		s.streamInters = interceptors
+	}
+}
+
+func WithTLS(config *tls.Config) utility.Option[Server] {
+	return func(s *Server) {
+		s.tlsConfig = config
+	}
 }
 
 // WithAddr create a listener with network and address
@@ -35,7 +62,7 @@ func WithListener(lis net.Listener) utility.Option[Server] {
 // WithServerOption inject grpc.ServerOption to server
 func WithServerOption(opts ...grpc.ServerOption) utility.Option[Server] {
 	return func(s *Server) {
-		s.serverOpts = opts
+		s.serverOption = opts
 	}
 }
 

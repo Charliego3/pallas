@@ -2,22 +2,26 @@ package grpcx
 
 import (
 	"context"
-	"log/slog"
-	"net"
-	"os"
-
 	"github.com/charliego3/mspp/types"
 	"github.com/charliego3/mspp/utility"
 	"github.com/charliego3/shandler"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
+	"net"
 )
+
+var NoListener = errors.New("gRPC server")
 
 type Server struct {
 	*options
 	base   *types.BaseServer
 	server *grpc.Server
+	health grpc_health_v1.HealthServer
 	group  *errgroup.Group
 }
 
@@ -26,25 +30,38 @@ func NewServer(opts ...utility.Option[Server]) *Server {
 	s := new(Server)
 	s.base = new(types.BaseServer)
 	s.options = new(options)
+	s.health = health.NewServer()
 	utility.Apply(s, opts...)
 	if s.base.Logger == nil {
 		s.base.Logger = shandler.CopyWithPrefix("gRPC")
 	}
-	if s.base.Listener == nil {
-		listener, err := utility.RandomTCPListener()
-		if err != nil {
-			s.base.Logger.Error("failed to listen", slog.Any("err", err))
-			os.Exit(1)
-		}
-		s.base.Listener = listener
+	grpcOpts := []grpc.ServerOption{
+		grpc.ChainUnaryInterceptor(append(
+			[]grpc.UnaryServerInterceptor{unaryInterceptor},
+			s.unaryInters...,
+		)...),
+		grpc.ChainStreamInterceptor(append(
+			[]grpc.StreamServerInterceptor{streamInterceptor},
+			s.streamInters...,
+		)...),
 	}
-	s.server = grpc.NewServer(s.serverOpts...)
+	if s.tlsConfig != nil {
+		grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(s.tlsConfig)))
+	}
+	if len(s.serverOption) > 0 {
+		grpcOpts = append(grpcOpts, s.serverOption...)
+	}
+	s.server = grpc.NewServer(s.serverOption...)
+	if !s.disableHealth {
+		grpc_health_v1.RegisterHealthServer(s.server, s.health)
+	}
+	reflection.Register(s.server)
 	return s
 }
 
-// Address returns grpc listener addr
-func (g *Server) Address() net.Addr {
-	return g.base.Listener.Addr()
+// Listener returns grpc listener
+func (g *Server) Listener() net.Listener {
+	return g.base.Listener
 }
 
 // RegisterService register server to grpc server
@@ -55,14 +72,18 @@ func (g *Server) RegisterService(services ...types.Service) {
 }
 
 func (g *Server) Run(ctx context.Context) error {
-	if g.group == nil {
-		group, _ := errgroup.WithContext(ctx)
-		g.group = group
+	if !g.base.HasListener() {
+		return NoListener
 	}
-	g.group.Go(func() error {
-		return g.server.Serve(g.base.Listener)
-	})
-	g.base.Logger.Info("listen on", slog.String("address", g.base.Listener.Addr().String()))
+
+	if g.base.Listener == nil {
+		listener, err := net.Listen(g.base.Network, g.base.Addr)
+		if err != nil {
+			return err
+		}
+
+		g.base.Listener = listener
+	}
 	return nil
 }
 

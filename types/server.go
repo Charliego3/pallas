@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"github.com/charliego3/mspp/utility"
 	"log/slog"
 	"net"
 
@@ -18,10 +19,22 @@ type Server interface {
 	Shutdown(ctx context.Context) error
 }
 
+type ServerInfo interface {
+	Listener() net.Listener
+}
+
 type BaseServer struct {
 	Network, Addr string
 	Logger        *slog.Logger
 	Listener      net.Listener
+}
+
+func (s *BaseServer) HasListener() bool {
+	if s.Listener != nil {
+		return true
+	}
+
+	return utility.NonBlanks(s.Network, s.Addr)
 }
 
 type Dispatcher interface {
