@@ -4,36 +4,39 @@ import (
 	"context"
 	"github.com/charliego3/mspp/types"
 	"github.com/charliego3/mspp/utility"
-	"github.com/charliego3/shandler"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
-	"net"
+	"log/slog"
 )
 
-var NoListener = errors.New("gRPC server")
+var (
+	_ types.Server = (*Server)(nil)
+
+	NoListener = errors.New("[gRPC] server not bind listener")
+)
 
 type Server struct {
 	*options
-	base   *types.BaseServer
+	*types.BaseServer
 	server *grpc.Server
-	health grpc_health_v1.HealthServer
-	group  *errgroup.Group
+	health *health.Server
+	ctx    context.Context
+	err    error
 }
 
 // NewServer returns grpc server instance
 func NewServer(opts ...utility.Option[Server]) *Server {
 	s := new(Server)
-	s.base = new(types.BaseServer)
+	s.BaseServer = new(types.BaseServer)
 	s.options = new(options)
 	s.health = health.NewServer()
-	utility.Apply(s, opts...)
-	if s.base.Logger == nil {
-		s.base.Logger = shandler.CopyWithPrefix("gRPC")
+	s.err = utility.Apply(s, opts...)
+	if s.Logger == nil {
+		s.Logger = slog.Default()
 	}
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(append(
@@ -51,7 +54,7 @@ func NewServer(opts ...utility.Option[Server]) *Server {
 	if len(s.serverOption) > 0 {
 		grpcOpts = append(grpcOpts, s.serverOption...)
 	}
-	s.server = grpc.NewServer(s.serverOption...)
+	s.server = grpc.NewServer(grpcOpts...)
 	if !s.disableHealth {
 		grpc_health_v1.RegisterHealthServer(s.server, s.health)
 	}
@@ -59,39 +62,35 @@ func NewServer(opts ...utility.Option[Server]) *Server {
 	return s
 }
 
-// Listener returns grpc listener
-func (g *Server) Listener() net.Listener {
-	return g.base.Listener
-}
-
 // RegisterService register server to grpc server
 func (g *Server) RegisterService(services ...types.Service) {
+	if g.err != nil {
+		return
+	}
+
 	for _, srv := range services {
-		g.server.RegisterService(srv.Desc(), srv)
+		desc := srv.Desc()
+		g.server.RegisterService(&desc, srv)
 	}
 }
 
 func (g *Server) Run(ctx context.Context) error {
-	if !g.base.HasListener() {
+	if g.err != nil {
+		return g.err
+	}
+
+	if g.Listener == nil {
 		return NoListener
 	}
 
-	if g.base.Listener == nil {
-		listener, err := net.Listen(g.base.Network, g.base.Addr)
-		if err != nil {
-			return err
-		}
-
-		g.base.Listener = listener
-	}
-	return nil
+	g.ctx = ctx
+	g.health.Resume()
+	g.Logger.Info("[gRPC] server listening on", slog.String("address", g.Listener.Addr().String()))
+	return g.server.Serve(g.Listener)
 }
 
-func (g *Server) Start(ctx context.Context) error {
-	err := g.Run(ctx)
-	return errors.Wrap(g.group.Wait(), err.Error())
-}
-
-func (g *Server) Shutdown(ctx context.Context) error {
+func (g *Server) Shutdown(context.Context) error {
+	g.health.Shutdown()
+	g.server.GracefulStop()
 	return nil
 }
