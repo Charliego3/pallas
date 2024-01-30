@@ -25,6 +25,6 @@ init:
 .PHONY: gen
 gen:
 	protoc \
-		--go_out=./testdata --go_opt=module=github.com/charliego3/mspp/testdata \
-		--go-grpc_out=./testdata --go-grpc_opt=module=github.com/charliego3/mspp/testdata \
+		--go_out=./testdata --go_opt=module=github.com/charliego3/pallas/testdata \
+		--go-grpc_out=./testdata --go-grpc_opt=module=github.com/charliego3/pallas/testdata \
 		$(PROTOS)

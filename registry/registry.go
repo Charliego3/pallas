@@ -7,5 +7,5 @@ import (
 
 type Registry interface {
 	Register(context.Context, grpc.ServiceInfo)
-	DeRegister()
+	UnRegister()
 }

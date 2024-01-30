@@ -23,10 +23,35 @@ type BaseServer struct {
 	Listener net.Listener
 }
 
+func NewDefaultBaseServer() *BaseServer {
+	s := new(BaseServer)
+	s.Logger = slog.Default()
+	return s
+}
+
 type Dispatcher interface {
 	Dispatch()
 }
 
+type GrpcServiceDesc = grpc.ServiceDesc
+
+type HttpMethodDesc struct {
+	Method   string
+	Template string
+	Handler  func(Service) any
+}
+
+type HttpServiceDesc struct {
+	ServiceName string
+	HandlerType any
+	Methods     []HttpMethodDesc
+}
+
+type ServiceDesc struct {
+	Grpc GrpcServiceDesc
+	Http HttpServiceDesc
+}
+
 type Service interface {
-	Desc() grpc.ServiceDesc
+	Desc() ServiceDesc
 }

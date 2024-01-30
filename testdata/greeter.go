@@ -2,7 +2,8 @@ package testdata
 
 import (
 	"context"
-	"google.golang.org/grpc"
+
+	"github.com/charliego3/pallas/types"
 )
 
 type Greeter struct {
@@ -19,6 +20,9 @@ func (g *Greeter) SayHelloStream(Greeter_SayHelloStreamServer) error {
 	return nil
 }
 
-func (g *Greeter) Desc() grpc.ServiceDesc {
-	return Greeter_ServiceDesc
+func (g *Greeter) Desc() types.ServiceDesc {
+	return types.ServiceDesc{
+		Grpc: Greeter_ServiceDesc,
+		Http: Greeter_HttpServiceDesc,
+	}
 }

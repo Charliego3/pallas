@@ -7,18 +7,18 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var DefaultLanguage language.Tag
+var defaultLanguage language.Tag
 
 func init() {
 	SetDefaultLanguage(language.Chinese)
 }
 
 func SetDefaultLanguage(lang language.Tag) {
-	DefaultLanguage = lang
+	defaultLanguage = lang
 }
 
 func Language(ctx context.Context) language.Tag {
-	lang := DefaultLanguage
+	lang := defaultLanguage
 	if l, ok := MDExtract(ctx, "accept-language"); ok {
 		tag := i18n.ParseFromHeader(l)
 		if tag != language.Und {

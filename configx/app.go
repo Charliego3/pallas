@@ -2,7 +2,7 @@ package configx
 
 type App struct {
 	Network string `json:"network,omitempty" yaml:"network,omitempty"`
-	Address string `json:"address,omitempty" yaml:"address"`
+	Address string `json:"address,omitempty" yaml:"address,omitempty"`
 }
 
 type standardAppFetcher struct{}

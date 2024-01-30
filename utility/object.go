@@ -9,3 +9,11 @@ func Nils(objs ...any) bool {
 	}
 	return true
 }
+
+// DObj returns source if not nil else return default value
+func DObj[T any](source, d T) T {
+	if (any)(source) == nil {
+		return d
+	}
+	return source
+}

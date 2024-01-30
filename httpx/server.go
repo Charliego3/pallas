@@ -1,59 +1,80 @@
 package httpx
 
 import (
-	"github.com/charliego3/mspp/utility"
-	"net"
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 
-	"github.com/charliego3/logger"
-	"github.com/charliego3/mspp/types"
-	"github.com/gorilla/mux"
+	"github.com/charliego3/pallas/types"
+	"github.com/charliego3/pallas/utility"
 )
 
-type Server struct {
-	*mux.Router
+const HealthzURI = "/debug/healthz"
 
-	// this listener will be served
-	listener net.Listener
-
-	// http server middleware
-	middlewares []Middleware
-
-	logger logger.Logger
+// HealthzHandler is a health-check handler that returns an OK status for all
+// incoming HTTP requests.
+var HealthzHandler = func(w http.ResponseWriter, r *http.Request) {
+	_, _ = fmt.Fprint(w, "OK")
 }
 
-type Middleware = mux.MiddlewareFunc
+type Server struct {
+	*options
+	*types.BaseServer
+	*http.Server
+	*Router
+}
 
 func NewServer(opts ...utility.Option[Server]) *Server {
-	h := &Server{
-		Router: mux.NewRouter(),
-	}
-
-	h.init(opts)
-	h.Use(h.middlewares...)
+	h := new(Server)
+	h.Router = NewRouter()
+	h.Server = new(http.Server)
+	h.options = newDefauleOpts()
+	h.BaseServer = types.NewDefaultBaseServer()
+	utility.Apply(h, opts...)
 	return h
 }
 
-func (h *Server) Logger() logger.Logger {
-	return h.logger
-}
+func (h *Server) RegisterService(service ...types.Service) {
+	if h.Handler != nil {
+		return
+	}
 
-// init accept options to Server
-func (h *Server) init(options []utility.Option[Server]) {
-	utility.Apply(h, options...)
-
-	if h.listener == nil {
-		logger.Fatal("http server has no address specified, use WithAddr or WithListener to specify")
+	for _, serv := range service {
+		h.registerService(serv)
 	}
 }
 
-func (h *Server) RegisterService(service ...types.Service) {
-	h.Path("").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-	})
+func (h *Server) registerService(srv types.Service) {
+	for _, m := range srv.Desc().Http.Methods {
+		handler := m.Handler(srv)
+		if handler == nil {
+			panic("nil handler cannot register on httpx.Server")
+		}
+		if hd, ok := handler.(Handler); !ok {
+			panic(fmt.Sprintf("%T handler cannot register, expect: httpx.Handler", handler))
+		} else {
+			h.handle(m.Method, m.Template, hd)
+		}
+	}
 }
 
-func (h *Server) Run() error {
-	h.logger.Info("serveing...")
-	return http.Serve(h.listener, nil)
+func (h *Server) Run(ctx context.Context) error {
+	if h.Listener == nil {
+		return errors.New("[HTTP] not bind listener")
+	}
+
+	if h.Handler == nil {
+		h.Handler = h.Router
+	}
+	h.Logger.Info("[HTTP] listening on", slog.String("address", h.Listener.Addr().String()))
+	if h.TLSConfig != nil {
+		return h.ServeTLS(h.Listener, "", "")
+	}
+	return h.Serve(h.Listener)
+}
+
+func (h *Server) Shutdown(ctx context.Context) error {
+	return h.Server.Shutdown(ctx)
 }

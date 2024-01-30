@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/charliego3/logger"
-	"github.com/charliego3/mspp/configx"
-	"github.com/charliego3/mspp/utility"
+	"github.com/charliego3/pallas/configx"
+	"github.com/charliego3/pallas/utility"
 	"github.com/gookit/goutil/strutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package helloword;
 
-option go_package = "github.com/charliego3/mspp/testdata";
+option go_package = "github.com/charliego3/pallas/testdata";
 
 service Greeter {
   // Sends a greeting

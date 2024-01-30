@@ -2,15 +2,16 @@ package grpcx
 
 import (
 	"context"
-	"github.com/charliego3/mspp/types"
-	"github.com/charliego3/mspp/utility"
+	"log/slog"
+
+	"github.com/charliego3/pallas/types"
+	"github.com/charliego3/pallas/utility"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
-	"log/slog"
 )
 
 var (
@@ -25,19 +26,15 @@ type Server struct {
 	server *grpc.Server
 	health *health.Server
 	ctx    context.Context
-	err    error
 }
 
 // NewServer returns grpc server instance
 func NewServer(opts ...utility.Option[Server]) *Server {
 	s := new(Server)
-	s.BaseServer = new(types.BaseServer)
 	s.options = new(options)
+	s.BaseServer = types.NewDefaultBaseServer()
 	s.health = health.NewServer()
-	s.err = utility.Apply(s, opts...)
-	if s.Logger == nil {
-		s.Logger = slog.Default()
-	}
+	utility.Apply(s, opts...)
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(append(
 			[]grpc.UnaryServerInterceptor{unaryInterceptor},
@@ -64,28 +61,20 @@ func NewServer(opts ...utility.Option[Server]) *Server {
 
 // RegisterService register server to grpc server
 func (g *Server) RegisterService(services ...types.Service) {
-	if g.err != nil {
-		return
-	}
-
 	for _, srv := range services {
 		desc := srv.Desc()
-		g.server.RegisterService(&desc, srv)
+		g.server.RegisterService(&desc.Grpc, srv)
 	}
 }
 
 func (g *Server) Run(ctx context.Context) error {
-	if g.err != nil {
-		return g.err
-	}
-
 	if g.Listener == nil {
 		return NoListener
 	}
 
 	g.ctx = ctx
 	g.health.Resume()
-	g.Logger.Info("[gRPC] server listening on", slog.String("address", g.Listener.Addr().String()))
+	g.Logger.Info("[gRPC] listening on", slog.String("address", g.Listener.Addr().String()))
 	return g.server.Serve(g.Listener)
 }
 

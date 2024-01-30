@@ -6,6 +6,14 @@ import (
 	"unsafe"
 )
 
+// DString returns d if source if blank else return source
+func DString(source, d string) string {
+	if IsBlank(source) {
+		return d
+	}
+	return source
+}
+
 // String convert []byte to string
 func String(data []byte) string {
 	return unsafe.String(&data[0], len(data))
@@ -63,7 +71,7 @@ func Blanks(args ...string) bool {
 func SQLString(s string) sql.NullString {
 	return sql.NullString{
 		String: s,
-		Valid:  true,
+		Valid:  len(s) > 0,
 	}
 }
 

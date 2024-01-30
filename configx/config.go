@@ -1,9 +1,11 @@
 package configx
 
 import (
-	"fmt"
+	"errors"
 	"sync"
 )
+
+var ErrNotFound = errors.New("not found config")
 
 type Fetcher[T any] interface {
 	Fetch() (T, error)
@@ -60,5 +62,5 @@ func getConfig[T any]() (t T, ok error) {
 	if f, ok := getFetcher[T](); ok {
 		return f.Fetch()
 	}
-	return t, fmt.Errorf("config not found: %T", t)
+	return t, ErrNotFound
 }
