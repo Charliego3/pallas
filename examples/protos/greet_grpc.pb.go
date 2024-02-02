@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v4.25.0
-// source: testdata/greet.proto
+// source: protos/greet.proto
 
-package testdata
+package pb
 
 import (
 	context "context"
@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Greeter_SayHello_FullMethodName       = "/helloword.Greeter/SayHello"
-	Greeter_SayHelloStream_FullMethodName = "/helloword.Greeter/SayHelloStream"
+	Greeter_SayHello_FullMethodName       = "/protos.Greeter/SayHello"
+	Greeter_SayHelloStream_FullMethodName = "/protos.Greeter/SayHelloStream"
 )
 
 // GreeterClient is the client API for Greeter service.
@@ -163,7 +163,7 @@ func (x *greeterSayHelloStreamServer) Recv() (*HelloRequest, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Greeter_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "helloword.Greeter",
+	ServiceName: "protos.Greeter",
 	HandlerType: (*GreeterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -179,5 +179,5 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "testdata/greet.proto",
+	Metadata: "protos/greet.proto",
 }

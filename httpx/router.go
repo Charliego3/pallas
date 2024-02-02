@@ -23,7 +23,7 @@ func (f HandlerFunc) Serve(c *Context) error {
 type ErrorEncoder func(*Context, error)
 
 func defaultErrEncoder(c *Context, err error) {
-	c.Writer.Write(nil)
+	c.Write(err)
 }
 
 type RouteWalkFunc func(method, path string)

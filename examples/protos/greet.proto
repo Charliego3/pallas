@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package protos;
+
+option go_package = "github.com/charliego3/pallas/examples/protos;pb";
+import "google/api/annotations.proto";
+
+service Greeter {
+    // Sends a greeting
+    rpc SayHello (HelloRequest) returns (HelloReply) {
+        option (google.api.http) = {
+            get: "/sayHello"
+        };
+    }
+
+    // Sends a greeting
+    rpc SayHelloStream (stream HelloRequest) returns (stream HelloReply);
+}
+
+// The request message containing the user's name.
+message HelloRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings
+message HelloReply {
+  string message = 1;
+}
