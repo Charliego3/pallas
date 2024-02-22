@@ -23,7 +23,7 @@ type BaseServer struct {
 	Listener net.Listener
 }
 
-func NewDefaultBaseServer() *BaseServer {
+func NewBaseServer() *BaseServer {
 	s := new(BaseServer)
 	s.Logger = slog.Default()
 	return s

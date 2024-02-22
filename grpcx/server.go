@@ -32,16 +32,16 @@ type Server struct {
 func NewServer(opts ...utility.Option[Server]) *Server {
 	s := new(Server)
 	s.options = new(options)
-	s.BaseServer = types.NewDefaultBaseServer()
+	s.BaseServer = types.NewBaseServer()
 	s.health = health.NewServer()
 	utility.Apply(s, opts...)
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(append(
-			[]grpc.UnaryServerInterceptor{unaryInterceptor},
+			[]grpc.UnaryServerInterceptor{s.unaryInterceptor},
 			s.unaryInters...,
 		)...),
 		grpc.ChainStreamInterceptor(append(
-			[]grpc.StreamServerInterceptor{streamInterceptor},
+			[]grpc.StreamServerInterceptor{s.streamInterceptor},
 			s.streamInters...,
 		)...),
 	}

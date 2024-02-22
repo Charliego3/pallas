@@ -13,7 +13,7 @@ type User struct {
 }
 
 func (u *User) Register(ctx context.Context, in *pb.RegisterRequest) (*pb.LoginReply, error) {
-	fmt.Printf("%+v\n", in)
+	fmt.Printf("user register req: %+v\n", in)
 	return &pb.LoginReply{
 		Message: "register api",
 	}, nil

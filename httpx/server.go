@@ -20,7 +20,6 @@ var HealthzHandler = func(w http.ResponseWriter, r *http.Request) {
 }
 
 type Server struct {
-	*options
 	*types.BaseServer
 	*http.Server
 	*Router
@@ -30,8 +29,7 @@ func NewServer(opts ...utility.Option[Server]) *Server {
 	h := new(Server)
 	h.Router = NewRouter()
 	h.Server = new(http.Server)
-	h.options = newDefauleOpts()
-	h.BaseServer = types.NewDefaultBaseServer()
+	h.BaseServer = types.NewBaseServer()
 	utility.Apply(h, opts...)
 	return h
 }
@@ -58,6 +56,10 @@ func (h *Server) registerService(srv types.Service) {
 			h.handle(m.Method, m.Template, hd)
 		}
 	}
+}
+
+func (h *Server) Walk(fn RouteWalkFunc) error {
+	return h.Router.Walk(fn)
 }
 
 func (h *Server) Run(ctx context.Context) error {

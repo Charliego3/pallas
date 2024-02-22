@@ -17,14 +17,6 @@ type CallOption interface {
 	after()
 }
 
-type options struct {
-}
-
-func newDefauleOpts() *options {
-	opt := new(options)
-	return opt
-}
-
 // WithAddr optionally specifies the TCP address for the server to listen on
 func WithAddr(network, addr string) utility.Option[Server] {
 	return utility.OptionFunc[Server](func(s *Server) {
@@ -152,7 +144,7 @@ func WithConnState(fn func(net.Conn, http.ConnState)) utility.Option[Server] {
 // If nil, logging is done via the log package's standard logger.
 func WithErrorLogger(logger *log.Logger) utility.Option[Server] {
 	return utility.OptionFunc[Server](func(s *Server) {
-
+		s.ErrorLog = logger
 	})
 }
 
@@ -193,5 +185,52 @@ func WithMiddleware(middlewares ...Middleware) utility.Option[Server] {
 func WithLogger(logger *slog.Logger) utility.Option[Server] {
 	return utility.OptionFunc[Server](func(s *Server) {
 		s.Logger = logger
+	})
+}
+
+func WithMultipartMaxSize(size int64) utility.Option[Server] {
+	return utility.OptionFunc[Server](func(s *Server) {
+		s.maxMultipartSize = size
+	})
+}
+
+// WithStrictSlash defines the trailing slash behavior for new routes.
+// The initial value is false.
+//
+// When true, if the route path is "/path/", accessing "/path" will perform a redirect
+// to the former and vice versa. In other words, your application will always
+// see the path as specified in the route.
+//
+// When false, if the route path is "/path", accessing "/path/" will not match
+// this route and vice versa.
+func WithStrictSlash(value bool) utility.Option[Server] {
+	return utility.OptionFunc[Server](func(s *Server) {
+		s.StrictSlash(value)
+	})
+}
+
+// WithSkipClean defines the path cleaning behaviour for new routes. The initial
+// value is false. Users should be careful about which routes are not cleaned
+//
+// When true, if the route path is "/path//to", it will remain with the double
+// slash. This is helpful if you have a route like: /fetch/http://xkcd.com/534/
+//
+// When false, the path will be cleaned, so /fetch/http://xkcd.com/534/ will
+// become /fetch/http/xkcd.com/534
+func WithSkipClean(value bool) utility.Option[Server] {
+	return utility.OptionFunc[Server](func(s *Server) {
+		s.SkipClean(value)
+	})
+}
+
+// WithUseEncodedPath tells the router to match the encoded original path
+// to the routes.
+// For eg. "/path/foo%2Fbar/to" will match the path "/path/{var}/to".
+//
+// If not called, the router will match the unencoded path to the routes.
+// For eg. "/path/foo%2Fbar/to" will match the path "/path/foo/bar/to"
+func WithUseEncodedPath() utility.Option[Server] {
+	return utility.OptionFunc[Server](func(s *Server) {
+		s.UseEncodedPath()
 	})
 }

@@ -34,17 +34,17 @@ func RegisterCodec(codec Codec) {
 		panic("codec: can not register a nil Codec")
 	}
 
-	ctype := codec.Type()
-	if utility.IsBlank(ctype) {
+	typename := codec.Type()
+	if utility.IsBlank(typename) {
 		panic("codec: can not register Codec with empty type")
 	}
 
-	registeredCodec[strings.ToLower(ctype)] = codec
+	registeredCodec[strings.ToLower(typename)] = codec
 }
 
-func CodecWithType(ctype string) Codec {
-	if codec, ok := registeredCodec[strings.ToLower(ctype)]; ok {
+func CodecWithType(typename string) Codec {
+	if codec, ok := registeredCodec[strings.ToLower(typename)]; ok {
 		return codec
 	}
-	panic(fmt.Sprintf("forget register Codec? type: [%s]", ctype))
+	panic(fmt.Sprintf("forget register Codec? type: [%s]", typename))
 }

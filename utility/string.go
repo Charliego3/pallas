@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-// DString returns d if source if blank else return source
+// DString returns d if source blank else return source
 func DString(source, d string) string {
 	if IsBlank(source) {
 		return d

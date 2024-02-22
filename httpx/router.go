@@ -8,13 +8,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// This is a compilation time proposition to ensure
+// that the Router is compatible with HTTP package.
 var _ http.Handler = (*Router)(nil)
 
 type Handler interface {
-	Serve(*Context) error
+	Serve(c *Context) error
 }
 
-type HandlerFunc func(*Context) error
+type HandlerFunc func(c *Context) error
 
 func (f HandlerFunc) Serve(c *Context) error {
 	return f(c)
@@ -37,10 +39,13 @@ type Router struct {
 
 	// ene route error processor
 	ene ErrorEncoder
+
+	maxMultipartSize int64
 }
 
 func NewRouter(middlewares ...Middleware) *Router {
 	r := new(Router)
+	r.maxMultipartSize = 32 << 20
 	r.Router = mux.NewRouter()
 	r.middlewares = middlewares
 	r.ene = defaultErrEncoder
@@ -64,15 +69,17 @@ func (r *Router) Walk(fn RouteWalkFunc) error {
 	})
 }
 
-func (r *Router) mergeMiddlewares(middlewares ...Middleware) []Middleware {
-	return append(r.middlewares, middlewares...)
+func (r *Router) mergeMiddlewares(handler Handler, middlewares ...Middleware) Handler {
+	middlewares = append(r.middlewares, middlewares...)
+	for _, middleware := range middlewares {
+		handler = middleware(handler)
+	}
+	return handler
 }
 
 func (r *Router) handle(method, path string, handler Handler, middlewares ...Middleware) {
-	for _, ware := range r.mergeMiddlewares(middlewares...) {
-		handler = ware(handler)
-	}
 	next := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		handler = r.mergeMiddlewares(handler, middlewares...)
 		ctx := NewContext(w, req)
 		if err := handler.Serve(ctx); err != nil {
 			r.ene(ctx, err)

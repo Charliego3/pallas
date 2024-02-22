@@ -19,18 +19,6 @@ import (
 	"github.com/soheilhy/cmux"
 )
 
-var (
-	// Name is the application unique name
-	// this can be injected with build command `-X github.com/charliego3/pallas.Name=<app name>`
-	// or using Option set value
-	Name string
-
-	// Version sepcify the application's version
-	// this can be injected with build command `-X github.com/charliego3/pallas.Version=<version>`
-	// or using Option set value
-	Version string
-)
-
 type Application struct {
 	// http server is httpx.Server handler http request
 	http *httpx.Server
@@ -46,7 +34,8 @@ type Application struct {
 	*options
 
 	ctx      context.Context
-	cancel   context.CancelCauseFunc
+	stop     context.CancelFunc
+	waitC    chan struct{}
 	logger   *slog.Logger
 	registry registry.Registry
 }
@@ -116,21 +105,49 @@ func (app *Application) RegisterService(services ...types.Service) {
 
 // Run start the server until terminate
 func (app *Application) Run(ctx context.Context) (err error) {
-	group, ctx := errgroup.WithContext(ctx)
-	app.ctx = ctx
+	app.ctx, app.stop = context.WithCancel(ctx)
+	if app.beforeStart != nil {
+		app.ctx, err = app.beforeStart(app.ctx)
+		if err != nil {
+			return err
+		}
+	}
+	group, ctx := errgroup.WithContext(app.ctx)
 	group.Go(func() error {
-		return app.http.Run(ctx)
+		return app.http.Run(app.ctx)
 	})
 	group.Go(func() error {
-		return app.grpc.Run(ctx)
+		return app.grpc.Run(app.ctx)
 	})
 	if app.mux != nil {
 		group.Go(app.mux.Serve)
 	}
-	app.logger.Info("started.")
+	app.waitC = make(chan struct{})
+	defer close(app.waitC)
+	if app.afterStart != nil {
+		_, err = app.afterStart(app.ctx)
+		if err != nil {
+			return err
+		}
+	}
 	return group.Wait()
 }
 
 func (app *Application) Shutdown() {
+	if app.beforeShutdown != nil {
+		err := app.beforeShutdown(app.ctx)
+		if err != nil {
+			return
+		}
+	}
 
+	app.stop()
+	<-app.waitC
+
+	if app.afterShutdown != nil {
+		err := app.afterShutdown(app.ctx)
+		if err != nil {
+			return
+		}
+	}
 }

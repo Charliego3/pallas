@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"fmt"
+	"github.com/charliego3/pallas/utility"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"github.com/charliego3/pallas/encoding"
 	"github.com/charliego3/pallas/encoding/json"
 	"github.com/charliego3/pallas/encoding/xml"
-	"github.com/charliego3/pallas/utility"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 )
@@ -20,10 +20,13 @@ const (
 	contentTypeHeader = "Content-Type"
 )
 
-var defaultCodecType = json.Type
+var (
+	defaultCodecType = json.Type
+	valuesDecoder    = schema.NewDecoder()
+)
 
-func SetDefaultCodeType(ctype string) {
-	defaultCodecType = ctype
+func SetDefaultCodeType(typename string) {
+	defaultCodecType = typename
 }
 
 type AbortedErr struct {
@@ -41,8 +44,9 @@ func (e AbortedErr) Error() string {
 type Context struct {
 	context.Context
 	*http.Request
-	Writer  http.ResponseWriter
-	decoder *schema.Decoder
+	Writer http.ResponseWriter
+
+	maxMultipartSize int64
 }
 
 func NewContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -50,7 +54,6 @@ func NewContext(w http.ResponseWriter, r *http.Request) *Context {
 	ctx.Context = r.Context()
 	ctx.Request = r
 	ctx.Writer = w
-	ctx.decoder = schema.NewDecoder()
 	return ctx
 }
 
@@ -81,7 +84,7 @@ func (c *Context) BindQuery(v any) error {
 		return nil
 	}
 
-	return c.decoder.Decode(v, values)
+	return valuesDecoder.Decode(v, values)
 }
 
 func (c *Context) BindVars(v any) error {
@@ -94,15 +97,34 @@ func (c *Context) BindVars(v any) error {
 	for k, v := range vars {
 		values.Set(k, v)
 	}
-	return c.decoder.Decode(v, values)
+	return valuesDecoder.Decode(v, values)
 }
 
 func (c *Context) BindForm(v any) error {
+	if err := c.ParseForm(); err != nil {
+		return err
+	}
 	if len(c.PostForm) == 0 {
 		return nil
 	}
 
-	return c.decoder.Decode(v, c.PostForm)
+	return valuesDecoder.Decode(v, c.PostForm)
+}
+
+func (c *Context) BindMultipartForm(v any) error {
+	if err := c.ParseMultipartForm(c.maxMultipartSize); err != nil {
+		return err
+	}
+
+	var err error
+	if len(c.MultipartForm.Value) > 0 {
+		if err = valuesDecoder.Decode(v, c.MultipartForm.Value); err != nil {
+			return err
+		}
+	}
+
+	// TODO: bind multipart form values and files
+	return nil
 }
 
 func (c *Context) Bind(v any) error {
@@ -119,6 +141,8 @@ func (c *Context) Bind(v any) error {
 	switch contentType {
 	case "x-www-form-urlencoded":
 		return c.BindForm(v)
+	case "form-data":
+		return c.BindMultipartForm(v)
 	default:
 		return c.bind(contentType, v)
 	}
@@ -126,8 +150,8 @@ func (c *Context) Bind(v any) error {
 
 func (c *Context) write(contentType string, v any, code []int) error {
 	codec := encoding.CodecWithType(contentType)
-	c.Writer.WriteHeader(utility.First(http.StatusOK, code))
 	c.Writer.Header().Set("Content-Type", "application/"+codec.Type())
+	c.Writer.WriteHeader(utility.First(http.StatusOK, code))
 	if coder, ok := codec.(encoding.Coder); ok {
 		return coder.Encoder(c.Writer).Encode(v)
 	}

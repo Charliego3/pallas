@@ -24,6 +24,8 @@ type options struct {
 	// middles accept http server Middleware
 	hopts []utility.Option[httpx.Server]
 
+	middlewares []Middleware
+
 	// onStartup run on Applition after init
 	onStartup   func(*Application) error
 	beforeStart StartInterceptor
@@ -31,18 +33,6 @@ type options struct {
 
 	beforeShutdown func(context.Context) error
 	afterShutdown  func(context.Context) error
-}
-
-func WithName(name string) utility.Option[Application] {
-	return utility.OptionFunc[Application](func(*Application) {
-		Name = name
-	})
-}
-
-func WithVersion(version string) utility.Option[Application] {
-	return utility.OptionFunc[Application](func(*Application) {
-		Version = version
-	})
 }
 
 func WithLogger(logger *slog.Logger) utility.Option[Application] {
@@ -63,14 +53,14 @@ func WithHttpOpts(hopts ...utility.Option[httpx.Server]) utility.Option[Applicat
 	})
 }
 
-func OnStartup(fn func(*Application) error) utility.Option[Application] {
+func OnStartup(fn func(app *Application) error) utility.Option[Application] {
 	return utility.OptionFunc[Application](func(cfg *Application) {
 		cfg.onStartup = fn
 	})
 }
 
-// WithGrpcServerOpts accept grpc server options
-func WithGrpcServerOpts(gopts ...utility.Option[grpcx.Server]) utility.Option[Application] {
+// WithGrpcOpts accept grpc server options
+func WithGrpcOpts(gopts ...utility.Option[grpcx.Server]) utility.Option[Application] {
 	return utility.OptionFunc[Application](func(cfg *Application) {
 		cfg.gopts = append(cfg.gopts, gopts...)
 	})
@@ -96,5 +86,13 @@ func WithTCPAddr(addr string) utility.Option[Application] {
 func WithListener(listener net.Listener) utility.Option[Application] {
 	return utility.OptionFunc[Application](func(cfg *Application) {
 		cfg.listener = listener
+	})
+}
+
+// WithDefaultCodecType is http server defalt Codec type name
+// encoding/json.Type or encoding/xml.Type or custom register Codec type
+func WithDefaultCodecType(typename string) utility.Option[Application] {
+	return utility.OptionFunc[Application](func(cfg *Application) {
+		httpx.SetDefaultCodeType(typename)
 	})
 }

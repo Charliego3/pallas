@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/charliego3/pallas"
-	_ "github.com/charliego3/pallas/encoding/json"
 	"github.com/charliego3/pallas/examples/userservice/internal/service"
 	"github.com/charliego3/pallas/httpx"
 	"github.com/charliego3/pallas/utility"
@@ -26,6 +26,17 @@ func appOpts() []utility.Option[pallas.Application] {
 		pallas.WithTCPAddr(":8888"),
 		pallas.WithHttpOpts(
 			httpx.WithMiddleware(httpx.RecoverMiddleware),
+			httpx.WithMiddleware(httpx.Middleware(func(next httpx.Handler) httpx.Handler {
+				fmt.Println("into middleware 1....")
+				return next
+			})),
+			httpx.WithMiddleware(httpx.RecoverMiddleware),
+			httpx.WithMiddleware(httpx.Middleware(func(next httpx.Handler) httpx.Handler {
+				return httpx.HandlerFunc(func(c *httpx.Context) error {
+					fmt.Println(c.URL.Path)
+					return next.Serve(c)
+				})
+			})),
 		),
 	}
 }

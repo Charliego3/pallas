@@ -2,13 +2,19 @@ package grpcx
 
 import (
 	"context"
+	"fmt"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
-func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func (s *Server) unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	fmt.Printf("interceptor: %+v\n", req)
 	return handler(ctx, req)
 }
 
-func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (s *Server) streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	grpc.MethodFromServerStream(ss)
+	metadata.FromIncomingContext(ss.Context())
 	return handler(srv, ss)
 }
