@@ -6,7 +6,9 @@ import (
 	"net"
 
 	"github.com/charliego3/pallas/grpcx"
+	"github.com/charliego3/pallas/middleware"
 	"github.com/charliego3/pallas/utility"
+	"github.com/soheilhy/cmux"
 
 	"github.com/charliego3/pallas/httpx"
 )
@@ -18,13 +20,15 @@ type options struct {
 	// when gopts or hopts has not sepcity listener
 	listener net.Listener
 
+	// grpcMatcher match the grpc request on same listener
+	// default using header content-type: application/grpc
+	grpcMatcher cmux.MatchWriter
+
 	// gopts is grpcx.Server options
 	gopts []utility.Option[grpcx.Server]
 
 	// middles accept http server Middleware
 	hopts []utility.Option[httpx.Server]
-
-	middlewares []Middleware
 
 	// onStartup run on Applition after init
 	onStartup   func(*Application) error
@@ -33,6 +37,20 @@ type options struct {
 
 	beforeShutdown func(context.Context) error
 	afterShutdown  func(context.Context) error
+}
+
+// WithGrpcMatcher custom grpc dispatcher
+func WithGrpcMatcher(matcher cmux.MatchWriter) utility.Option[Application] {
+	return utility.OptionFunc[Application](func(app *Application) {
+		app.grpcMatcher = matcher
+	})
+}
+
+func WithMiddleware(middlewares ...middleware.Middleware) utility.Option[Application] {
+	return utility.OptionFunc[Application](func(app *Application) {
+		app.hopts = append(app.hopts, httpx.WithMiddleware(middlewares...))
+		app.gopts = append(app.gopts, grpcx.WithMiddleware(middlewares...))
+	})
 }
 
 func WithLogger(logger *slog.Logger) utility.Option[Application] {

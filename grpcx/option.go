@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/charliego3/pallas/middleware"
 	"github.com/charliego3/pallas/utility"
 
 	"google.golang.org/grpc"
@@ -15,7 +16,14 @@ type options struct {
 	unaryInters   []grpc.UnaryServerInterceptor
 	streamInters  []grpc.StreamServerInterceptor
 	tlsConfig     *tls.Config
+	middlewares   []middleware.Middleware
 	disableHealth bool
+}
+
+func WithMiddleware(middlewares ...middleware.Middleware) utility.Option[Server] {
+	return utility.OptionFunc[Server](func(s *Server) {
+		s.middlewares = append(s.middlewares, middlewares...)
+	})
 }
 
 func DisableHealth() utility.Option[Server] {

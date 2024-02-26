@@ -28,29 +28,21 @@ func RegisterUserHTTPServer(s *httpx.Server, srv UserHTTPServer) {
 }
 
 func _User_Register_POST_HTTP_Handler(srv types.Service) any {
-	return httpx.HandlerFunc(func(c *httpx.Context) error {
+	return httpx.Handler(func(c *httpx.Context) (any, error) {
 		req := new(RegisterRequest)
 		if err := c.Bind(req); err != nil {
-			return err
+			return nil, err
 		}
-		res, err := srv.(UserServer).Register(c.Context, req)
-		if err != nil {
-			return err
-		}
-		return c.Write(res)
+		return srv.(UserServer).Register(c.Context, req)
 	})
 }
 
 func _User_Login_POST_HTTP_Handler(srv types.Service) any {
-	return httpx.HandlerFunc(func(c *httpx.Context) error {
+	return httpx.Handler(func(c *httpx.Context) (any, error) {
 		req := new(LoginRequest)
 		if err := c.Bind(req); err != nil {
-			return err
+			return nil, err
 		}
-		res, err := srv.(UserServer).Login(c.Context, req)
-		if err != nil {
-			return err
-		}
-		return c.Write(res)
+		return srv.(UserServer).Login(c.Context, req)
 	})
 }

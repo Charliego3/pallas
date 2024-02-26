@@ -45,14 +45,14 @@ func NewApp(opts ...utility.Option[Application]) *Application {
 	app := new(Application)
 	app.logger = slog.Default()
 	app.options = new(options)
+	app.grpcMatcher = cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc")
 	utility.Apply(app, opts...)
 
 	app.http = httpx.NewServer(app.hopts...)
 	app.grpc = grpcx.NewServer(app.gopts...)
 	if utility.Nils(app.http.Listener, app.grpc.Listener) {
 		app.mux = cmux.New(app.getListener())
-		matcher := cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc")
-		app.grpc.Listener = app.mux.MatchWithWriters(matcher)
+		app.grpc.Listener = app.mux.MatchWithWriters(app.grpcMatcher)
 		app.http.Listener = app.mux.Match(cmux.Any())
 	} else {
 		listener, err := utility.RandomTCPListener()

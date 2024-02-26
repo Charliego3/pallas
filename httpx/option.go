@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/charliego3/pallas/middleware"
 	"github.com/charliego3/pallas/utility"
 )
 
@@ -176,7 +177,7 @@ func WithRouterHandler(router http.Handler) utility.Option[Server] {
 	})
 }
 
-func WithMiddleware(middlewares ...Middleware) utility.Option[Server] {
+func WithMiddleware(middlewares ...middleware.Middleware) utility.Option[Server] {
 	return utility.OptionFunc[Server](func(s *Server) {
 		s.Router.middlewares = append(s.Router.middlewares, middlewares...)
 	})
