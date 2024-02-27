@@ -44,6 +44,7 @@ func _User_Login_POST_HTTP_Handler(srv types.Service) any {
 		if err := ctx.Bind(req); err != nil {
 			return nil, err
 		}
+		ctx.Payload = req
 		return srv.(UserServer).Login(ctx, req)
 	})
 }

@@ -82,6 +82,7 @@ func generateService(gen *protogen.Plugin, g *protogen.GeneratedFile, s *protoge
 		g.P("\t\tif err := ctx.Bind(req); err != nil {")
 		g.P("\t\t\treturn nil, err")
 		g.P("\t\t}")
+		g.P("\t\tctx.Payload = req")
 		g.P("\t\treturn srv.(", s.GoName, "Server).", m.name, "(ctx, req)")
 		g.P("\t})")
 		g.P("}")

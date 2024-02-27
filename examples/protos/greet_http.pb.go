@@ -26,11 +26,12 @@ func RegisterGreeterHTTPServer(s *httpx.Server, srv GreeterHTTPServer) {
 }
 
 func _Greeter_SayHello_GET_HTTP_Handler(srv types.Service) any {
-	return httpx.Handler(func(c *httpx.Context) (any, error) {
+	return httpx.Handler(func(ctx *httpx.Context) (any, error) {
 		req := new(HelloRequest)
-		if err := c.Bind(req); err != nil {
+		if err := ctx.Bind(req); err != nil {
 			return nil, err
 		}
-		return srv.(GreeterServer).SayHello(c.Context, req)
+		ctx.Payload = req
+		return srv.(GreeterServer).SayHello(ctx, req)
 	})
 }
