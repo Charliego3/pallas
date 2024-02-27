@@ -44,7 +44,8 @@ func (e AbortedErr) Error() string {
 type Context struct {
 	context.Context
 	*http.Request
-	Writer http.ResponseWriter
+	Writer  http.ResponseWriter
+	Payload any
 
 	maxMultipartSize int64
 }

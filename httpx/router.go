@@ -65,56 +65,31 @@ func (r *Router) Walk(fn RouteWalkFunc) error {
 }
 
 func (r *Router) handle(method, path string, handler Handler, middlewares ...middleware.Middleware) {
-	middleChain := make([]middleware.Middleware, 0, len(r.middlewares)+len(middlewares))
-	middleChain = append(middleChain, r.middlewares...)
-	middleChain = append(middleChain, middlewares...)
+	m := middleware.Chain(r.middlewares...)
+	m = m.Append(middlewares...)
 	next := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := NewContext(w, req)
-		check := func(reply any, err error, f func()) bool {
-			if err == nil && reply == nil {
-				return false
-			}
+		mctx := middleware.NewHTTPContext(req)
+		reply, err := m(func(c *middleware.Context) (any, error) {
+			reply, err := handler(ctx)
+			c.Payload = ctx.Payload
+			return reply, err
+		})(mctx)
 
-			if f != nil {
-				f()
-			}
-
-			if err != nil {
-				r.ene(ctx, err)
-				return true
-			}
-
-			if reply != nil {
-				ctx.Write(reply)
-				return true
-			}
-			return false
-		}
-
-		var writeHeader func() = nil
-		if len(middleChain) > 0 {
-			context := middleware.NewHTTPContext(req)
-			writeHeader = func() {
-				if len(context.ResHeader) == 0 {
-					return
-				}
-
-				for k, v := range context.ResHeader {
-					for _, v := range v {
-						ctx.Writer.Header().Add(k, v)
-					}
-				}
-			}
-			for _, m := range middleChain {
-				reply, err := m(context)
-				if check(reply, err, writeHeader) {
-					return
-				}
+		for k, v := range mctx.ResHeader {
+			for _, v := range v {
+				ctx.Writer.Header().Add(k, v)
 			}
 		}
 
-		reply, err := handler(ctx)
-		check(reply, err, writeHeader)
+		if err != nil {
+			r.ene(ctx, err)
+			return
+		}
+
+		if err = ctx.Write(reply); err != nil {
+			r.ene(ctx, err)
+		}
 	}))
 	route := r.Router.Handle(filepath.Join(r.prefix, path), next)
 	if utility.NonBlank(method) {

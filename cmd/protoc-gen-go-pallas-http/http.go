@@ -77,12 +77,12 @@ func generateService(gen *protogen.Plugin, g *protogen.GeneratedFile, s *protoge
 
 	for _, m := range methods {
 		g.P("func ", m.handler, "(srv types.Service) any {")
-		g.P("\treturn httpx.HandlerFunc(func(c *httpx.Context) error {")
+		g.P("\treturn httpx.Handler(func(ctx *httpx.Context) (any, error) {")
 		g.P("\t\treq := new(", m.in, ")")
-		g.P("\t\tif err := c.Bind(req); err != nil {")
-		g.P("\t\t\treturn err")
+		g.P("\t\tif err := ctx.Bind(req); err != nil {")
+		g.P("\t\t\treturn nil, err")
 		g.P("\t\t}")
-		g.P("\t\treturn srv.(", s.GoName, "Server).", m.name, "(c.Context, req)")
+		g.P("\t\treturn srv.(", s.GoName, "Server).", m.name, "(ctx, req)")
 		g.P("\t})")
 		g.P("}")
 		g.P()
